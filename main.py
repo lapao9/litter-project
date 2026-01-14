@@ -44,12 +44,10 @@ signal.signal(signal.SIGTERM, graceful_exit)
 # ------------------ DETECTION PRINT ------------------
 def print_detection(material, json_file, image_file, db_id, base_url=None):
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    url = f"{base_url}/{db_id}" if base_url and db_id else "N/A"
+    url = base_url
     print("\n" + "="*50)
     print(f"[{now}] Detection Result:")
     print(f"Detected Material : {material}")
-    print(f"Saved JSON       : {json_file}")
-    print(f"Image File       : {image_file}")
     print(f"Saved to DB with ID: {db_id if db_id else 'N/A'}")
     print(f"URL              : {url}")
     print("="*50 + "\n")
@@ -114,7 +112,7 @@ def process_once():
         print("DB ERROR:", e)
 
     # Print full detection info
-    base_url = f"http://{get_rpi_ip()}:8000/detections"
+    base_url = imageUrl
     print_detection(material_detected, json_path, filename, db_id, base_url=base_url)
 
 # ------------------ MAIN ------------------

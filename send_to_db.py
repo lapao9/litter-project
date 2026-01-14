@@ -29,8 +29,8 @@ def send_detection_to_db(material, description, image_url, latitude, longitude, 
         conn.close()
 
         print(f"Saved to DB with id {new_id}")
-        return True
+        return new_id
 
     except Exception as e:
         print("DB ERROR:", e)
-        return False
+        return -1
