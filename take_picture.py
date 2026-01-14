@@ -1,27 +1,65 @@
-#take_picture.py
-from picamera2 import Picamera2
+# take_picture.py
 import os
 import time
+import subprocess
 
 OUTPUT_DIR = "output/frames"
 
+try:
+    from picamera2 import Picamera2
+    PICAMERA2_AVAILABLE = True
+except ImportError:
+    PICAMERA2_AVAILABLE = False
+    print("Picamera2 não disponível, fallback para rpicam-still")
+
+picam2 = None
+
+def init_camera():
+    """Inicializa a Picamera2, se disponível"""
+    global picam2
+    if not PICAMERA2_AVAILABLE:
+        return False
+    try:
+        picam2 = Picamera2()
+        config = picam2.create_still_configuration(main={"size": (1280, 720)})
+        picam2.configure(config)
+        picam2.start()
+        time.sleep(0.5)
+        return True
+    except Exception as e:
+        print("Erro ao inicializar Picamera2:", e)
+        picam2 = None
+        return False
+
 def take_picture():
+    """Tira uma foto e devolve o caminho do ficheiro"""
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     filename = f"{OUTPUT_DIR}/frame_{int(time.time())}.jpg"
 
+    # 1️⃣ Tentar Picamera2
+    if PICAMERA2_AVAILABLE and picam2 is not None:
+        try:
+            picam2.capture_file(filename)
+            return filename
+        except Exception as e:
+            print("Picamera2 falhou:", e)
+
+    # 2️⃣ Fallback para rpicam-still (SSH-friendly)
     try:
-        picam2 = Picamera2()
-        config = picam2.create_still_configuration(
-            main={"size": (1280, 720)}
-        )
-        picam2.configure(config)
-        picam2.start()
-        time.sleep(0.6)
-        picam2.capture_file(filename)
-        picam2.stop()
-        picam2.close()
+        cmd = ["rpicam-still", "-n", "--output", filename]
+        subprocess.run(cmd, check=True)
         return filename
     except Exception as e:
-        print("Camera error:", e)
+        print("rpicam-still falhou:", e)
         return None
 
+def close_camera():
+    """Fecha Picamera2 se estiver aberta"""
+    global picam2
+    if picam2 is not None:
+        picam2.stop()
+        picam2.close()
+        picam2 = None
+
+# Inicializa a câmera Picamera2 no arranque
+init_camera()

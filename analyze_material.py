@@ -1,8 +1,11 @@
 #analyze_material.py
 import numpy as np
 from PIL import Image
-import tflite_runtime.interpreter as tflite
+#import tflite_runtime.interpreter as tflite
+import tensorflow as tf
 import os
+
+tflite = tf.lite
 
 MODEL_PATH = "model/waste_classifier.tflite"
 LABELS_PATH = "model/labels.txt"

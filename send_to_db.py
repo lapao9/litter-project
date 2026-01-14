@@ -1,34 +1,24 @@
 # send_to_db.py
 import psycopg2
+import os
+from dotenv import load_dotenv
 
-# send_to_db.py 
+load_dotenv()
+
 def send_detection_to_db(material, description, image_url, latitude, longitude, stick_id):
-    """
-    Insere uma deteção de lixo na base de dados NeonDB.
-
-    Args:
-        material (str): categoria detectada (plastic, metal, etc.)
-        description (str): descrição da AI
-        image_url (str): caminho local ou URL da imagem
-        latitude (float): latitude
-        longitude (float): longitude
-        stick_id: identificador do stick
-
-    Returns:
-        bool: True se sucesso, False se erro
-    """
     try:
         conn = psycopg2.connect(
-            host="ep-curly-voice-agp3o2vc-pooler.c-2.eu-central-1.aws.neon.tech",
-            dbname="neondb",
-            user="neondb_owner",
-            password="npg_KN6wGF4cBxef",
-            sslmode="require"
+            host=os.getenv("DB_HOST"),
+            dbname=os.getenv("DB_NAME"),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD"),
+            sslmode=os.getenv("DB_SSLMODE", "require")
         )
-        cur = conn.cursor()
 
+        cur = conn.cursor()
         cur.execute("""
-            INSERT INTO litter (category, ai_description, image_url, latitude, longitude, stick_id)
+            INSERT INTO litter
+            (category, ai_description, image_url, latitude, longitude, stick_id)
             VALUES (%s, %s, %s, %s, %s, %s)
             RETURNING id;
         """, (material, description, image_url, latitude, longitude, stick_id))
