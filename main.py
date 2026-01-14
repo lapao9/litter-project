@@ -4,6 +4,7 @@ import os
 import signal
 import sys
 from gpiozero import Button
+from datetime import datetime
 
 from local_server import run_in_thread as start_http_server
 from take_picture import take_picture
@@ -13,6 +14,7 @@ from send_to_db import send_detection_to_db
 from location import get_location
 from device_id import get_stick_id
 
+# ------------------ CONFIG ------------------
 BUTTON_GPIO = 20
 OUTPUT_JSON_DIR = "output/detections"
 os.makedirs(OUTPUT_JSON_DIR, exist_ok=True)
@@ -31,6 +33,7 @@ BASE_IMAGE_URL = f"http://{get_rpi_ip()}:8000/output/frames"
 
 button = Button(BUTTON_GPIO, bounce_time=0.1)
 
+# ------------------ EXIT HANDLER ------------------
 def graceful_exit(signum, frame):
     print("\nGraceful exit requested. Bye.")
     sys.exit(0)
@@ -38,6 +41,20 @@ def graceful_exit(signum, frame):
 signal.signal(signal.SIGINT, graceful_exit)
 signal.signal(signal.SIGTERM, graceful_exit)
 
+# ------------------ DETECTION PRINT ------------------
+def print_detection(material, json_file, image_file, db_id, base_url=None):
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    url = f"{base_url}/{db_id}" if base_url and db_id else "N/A"
+    print("\n" + "="*50)
+    print(f"[{now}] Detection Result:")
+    print(f"Detected Material : {material}")
+    print(f"Saved JSON       : {json_file}")
+    print(f"Image File       : {image_file}")
+    print(f"Saved to DB with ID: {db_id if db_id else 'N/A'}")
+    print(f"URL              : {url}")
+    print("="*50 + "\n")
+
+# ------------------ PROCESS ------------------
 def process_once():
     print("Taking picture...")
     image_path = take_picture()
@@ -51,62 +68,56 @@ def process_once():
     else:
         print("Analyzing Material...")
         material_detected = analyze_material(image_path)
-
-        # fallback seguro para DB
-        if material_detected not in ["plastic", "metal", "paper", "glass", "organic", "other"]:
-            material_db = "other"
-        else:
-            material_db = material_detected
-
+        material_db = material_detected if material_detected in ["plastic", "metal", "paper", "glass", "organic", "other"] else "other"
         filename = os.path.basename(image_path)
         imageUrl = f"{BASE_IMAGE_URL}/{filename}"
 
-    print("Detected material:", material_detected)  # mostra sempre o que o modelo retornou
-
-    # Beep sempre
     beep()
 
-    # Save detection JSON
+    # Save JSON
     timestamp = int(time.time())
     json_path = os.path.join(OUTPUT_JSON_DIR, f"det_{timestamp}.json")
-
     result = {
         "timestamp": timestamp,
         "image": image_path if image_path else "",
         "image_url": imageUrl,
         "material": material_detected
     }
-
     with open(json_path, "w") as f:
         json.dump(result, f, indent=2)
 
+    print("Detected material:", material_detected)
     print("Saved JSON:", json_path)
     print("Image filename:", filename)
 
-    # Get geolocation
+    # Location & device
     lat, lon = get_location()
-
-    # Get stick Id
     stick_id = get_stick_id()
 
-    # Send to database
+    # Send to DB
+    db_id = None
     try:
         db_ok = send_detection_to_db(
-            material=material_db,  # envia valor seguro
-            description=f"Detected material: {material_detected}",  # mantém o nome real
+            material=material_db,
+            description=f"Detected material: {material_detected}",
             image_url=imageUrl,
             latitude=lat,
             longitude=lon,
             stick_id=stick_id
         )
         if db_ok:
+            db_id = db_ok  # assume que retorna ID
             print("Saved to DB ✅")
         else:
             print("Failed to save to DB ❌")
     except Exception as e:
         print("DB ERROR:", e)
 
+    # Print full detection info
+    base_url = f"http://{get_rpi_ip()}:8000/detections"
+    print_detection(material_detected, json_path, filename, db_id, base_url=base_url)
 
+# ------------------ MAIN ------------------
 def main():
     print("Starting HTTP server...")
     start_http_server()
