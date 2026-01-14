@@ -3,7 +3,16 @@ from gpiozero import PWMOutputDevice
 import time
 
 # Cria PWM no GPIO17
-bz = PWMOutputDevice(17)
+bz = None
+#PWMOutputDevice(17)
+
+def init_buzzer():
+    global bz
+    if bz is None:
+        try:
+            bz = PWMOutputDevice(17)
+        except Exception as e:
+            print(f"[WARN] Buzzer not available: {e}")
 
 def beep(duration=0.15, freq=4000):
     """

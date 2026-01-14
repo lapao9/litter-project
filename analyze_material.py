@@ -7,8 +7,9 @@ import os
 
 #tflite = tf.lite
 
-MODEL_PATH = "model/waste_classifier.tflite"
-LABELS_PATH = "model/labels.txt"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+LABELS_PATH = os.path.join(BASE_DIR, "model", "labels.txt")
+MODEL_PATH  = os.path.join(BASE_DIR, "model", "waste_classifier.tflite")
 
 # carregar labels
 with open(LABELS_PATH, "r") as f:
