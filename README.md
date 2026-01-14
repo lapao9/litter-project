@@ -50,11 +50,7 @@ All credit for the original model architecture and dataset goes to the original 
 ---
 
 ## Documentation
-Documentation is available in the `docs/` folder:
-- Technical architecture
-- Hardware setup
-- User guide
-- Deployment instructions
+Documentation is available in the `docs/` folder
 
 ---
 
