@@ -1,0 +1,17 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../litter_project/litterProject/model"
+		},
+		{
+			"path": "../litter_project/litterProject/output"
+		},
+		{
+			"path": "../litter_project/litterProject/testingPhase"
+		}
+	],
+	"settings": {}
+}

@@ -1,0 +1,8 @@
+{
+  "timestamp": 1764593107,
+  "image": "output/frames/frame_1764593092.jpg",
+  "material": {
+    "material": "error",
+    "description": "Expecting value: line 1 column 1 (char 0)"
+  }
+}
