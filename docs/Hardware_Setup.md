@@ -1,7 +1,3 @@
-
----
-
-```markdown
 # Hardware Setup  
 ## AI Against Litter
 
