@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>AI Against Litter</title>
+
+<style>
+body {
+    background: #111;
+    color: white;
+    text-align: center;
+    font-family: Arial;
+}
+img {
+    max-width: 300px;
+    margin: 10px;
+    border-radius: 10px;
+}
+</style>
+</head>
+
+<body>
+
+<h1>🗑️  Current Session </h1>
+<p>Update for New Images</p>
+<button onclick="location.reload()">Update</button>
+
+
+<div id="gallery"></div>
+
+<script>
+fetch("/images.json")
+  .then(r => r.json())
+  .then(images => {
+    const g = document.getElementById("gallery");
+    images.reverse().forEach(src => {
+      const img = document.createElement("img");
+      img.src = src;
+      g.appendChild(img);
+    });
+  });
+</script>
+
+</body>
+</html>
+

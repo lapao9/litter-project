@@ -1,149 +1,86 @@
-# analyze_material.py
 import os
 import cv2
 import numpy as np
-from PIL import Image
 import tflite_runtime.interpreter as tflite
 
-# =========================
-# Paths
-# =========================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MODEL_PATH  = os.path.join(BASE_DIR, "model", "waste_classifier.tflite")
+MODEL_PATH = os.path.join(BASE_DIR, "model", "waste_classifier.tflite")
 LABELS_PATH = os.path.join(BASE_DIR, "model", "labels.txt")
 
-# =========================
-# Load labels
-# =========================
-with open(LABELS_PATH, "r") as f:
-    LABELS = [line.strip().lower() for line in f.readlines()]
+with open(LABELS_PATH) as f:
+    LABELS = [l.strip().lower() for l in f.readlines()]
 
-# =========================
-# Class mapping (robust)
-# =========================
 CLASS_MAP = {
     "battery": "battery",
     "biological": "organic",
-
     "brown-glass": "glass",
     "green-glass": "glass",
     "white-glass": "glass",
-
     "metal": "metal",
     "paper": "paper",
     "cardboard": "cardboard",
     "plastic": "plastic",
-
     "clothes": "textile",
     "shoes": "textile",
-
     "trash": "trash"
 }
 
-# =========================
-# Load TFLite model
-# =========================
 interpreter = tflite.Interpreter(model_path=MODEL_PATH)
 interpreter.allocate_tensors()
 input_details = interpreter.get_input_details()
 output_details = interpreter.get_output_details()
-INPUT_HEIGHT = input_details[0]["shape"][1]
-INPUT_WIDTH  = input_details[0]["shape"][2]
 
-# =========================
-# Preprocess image for TFLite
-# =========================
-def preprocess_image(img):
+H = input_details[0]["shape"][1]
+W = input_details[0]["shape"][2]
+
+
+def preprocess(img):
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    img = cv2.resize(img, (INPUT_WIDTH, INPUT_HEIGHT))
-    img = np.asarray(img, dtype=np.float32) / 255.0
-    img = np.expand_dims(img, axis=0)
-    return img
+    img = cv2.resize(img, (W, H))
+    img = img.astype(np.float32) / 255.0
+    return np.expand_dims(img, axis=0)
 
-# =========================
-# Detect main object and blur background
-# =========================
-def isolate_main_object(image_path):
+
+def blur_background(image_path, crop_fraction=0.5):
     img = cv2.imread(image_path)
     if img is None:
         return None, None
 
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    # Threshold automático baseado em Otsu
-    _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    h, w = img.shape[:2]
+    blurred = cv2.GaussianBlur(img, (21, 21), 0)
 
-    # Encontrar contornos
-    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    if len(contours) == 0:
-        # Nenhum objeto detectado
-        return img, None
+    ch, cw = int(h * crop_fraction), int(w * crop_fraction)
+    y1, y2 = h // 2 - ch // 2, h // 2 + ch // 2
+    x1, x2 = w // 2 - cw // 2, w // 2 + cw // 2
 
-    # Pegar maior contorno (assumimos objeto principal)
-    c = max(contours, key=cv2.contourArea)
-    x, y, w, h = cv2.boundingRect(c)
+    blurred[y1:y2, x1:x2] = img[y1:y2, x1:x2]
+    crop = img[y1:y2, x1:x2].copy()
 
-    # Criar máscara
-    mask = np.zeros(img.shape[:2], np.uint8)
-    mask[y:y+h, x:x+w] = 255
+    return blurred, crop
 
-    # Desfocar fundo
-    blurred = cv2.GaussianBlur(img, (21,21), 0)
-    result = np.where(mask[:,:,None]==255, img, blurred)
 
-    # Retornar crop do objeto
-    obj_crop = img[y:y+h, x:x+w].copy()
-    return result, obj_crop
-
-# =========================
-# Main analyze function
-# =========================
 def analyze_material(image_path, confidence_threshold=0.1):
     if not os.path.exists(image_path):
-        return "no_image"
+        return "no_image", None
 
     try:
-        _, obj_img = isolate_main_object(image_path)
-        if obj_img is None:
-            # Nenhum objeto detectado, usar imagem inteira
-            img_for_model = cv2.imread(image_path)
-        else:
-            img_for_model = obj_img
+        final_img, crop = blur_background(image_path)
+        input_img = crop if crop is not None else cv2.imread(image_path)
 
-        # Preprocessar para TFLite
-        input_data = preprocess_image(img_for_model)
-        interpreter.set_tensor(input_details[0]['index'], input_data)
+        input_data = preprocess(input_img)
+        interpreter.set_tensor(input_details[0]["index"], input_data)
         interpreter.invoke()
 
-        # Saída
-        output_data = interpreter.get_tensor(output_details[0]['index'])[0]
-        class_idx = int(np.argmax(output_data))
-        confidence = float(output_data[class_idx])
-        label = LABELS[class_idx]
+        output = interpreter.get_tensor(output_details[0]["index"])[0]
+        idx = int(np.argmax(output))
+        confidence = float(output[idx])
+        label = LABELS[idx]
 
         if confidence < confidence_threshold:
-            return "unknown"
+            return "unknown", final_img
 
-        return CLASS_MAP.get(label, "other")
+        return CLASS_MAP.get(label, "other"), final_img
 
     except Exception as e:
         print("Analyze error:", e)
-        return "error"
-
-# =========================
-# Debug helper
-# =========================
-def debug_analyze(image_path):
-    _, obj_img = isolate_main_object(image_path)
-    if obj_img is None:
-        img_for_model = cv2.imread(image_path)
-    else:
-        img_for_model = obj_img
-
-    input_data = preprocess_image(img_for_model)
-    interpreter.set_tensor(input_details[0]['index'], input_data)
-    interpreter.invoke()
-    output_data = interpreter.get_tensor(output_details[0]['index'])[0]
-
-    print("\nPredictions:")
-    for i, score in enumerate(output_data):
-        print(f"{LABELS[i]:15s} -> {float(score):.3f}")
+        return "error", None

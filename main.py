@@ -1,27 +1,41 @@
+# main.py
+import os
 import json
 import time
-import os
 import signal
 import sys
-from gpiozero import Button
 from datetime import datetime
+from gpiozero import Button
+import cv2
 
 from local_server import run_in_thread as start_http_server
 from take_picture import take_picture
 from analyze_material import analyze_material
-from buzzer import beep
-from buzzer import boot_beeps
-from buzzer import init_buzzer
+from buzzer import beep, boot_beeps, init_buzzer
 from send_to_db import send_detection_to_db
 from location import get_location
 from device_id import get_stick_id
 
+
+# =========================
+# INIT
+# =========================
 init_buzzer()
 
-# ------------------ CONFIG ------------------
 BUTTON_GPIO = 20
 OUTPUT_JSON_DIR = "output/detections"
+BASE_FRAMES_DIR = "output/frames"
+
 os.makedirs(OUTPUT_JSON_DIR, exist_ok=True)
+os.makedirs(BASE_FRAMES_DIR, exist_ok=True)
+
+# 🔹 SESSÃO ATUAL
+SESSION_ID = int(time.time())
+SESSION_DIR = os.path.join(BASE_FRAMES_DIR, f"session_{SESSION_ID}")
+os.makedirs(SESSION_DIR, exist_ok=True)
+
+button = Button(BUTTON_GPIO, bounce_time=0.1)
+
 
 def get_rpi_ip():
     import socket
@@ -33,106 +47,123 @@ def get_rpi_ip():
         s.close()
     return ip
 
-BASE_IMAGE_URL = f"http://{get_rpi_ip()}:8000/output/frames"
 
-button = Button(BUTTON_GPIO, bounce_time=0.1)
+BASE_IMAGE_URL = f"http://{get_rpi_ip()}:8000/output/frames/session_{SESSION_ID}"
 
-# ------------------ EXIT HANDLER ------------------
+
+# =========================
+# EXIT HANDLER
+# =========================
 def graceful_exit(signum, frame):
     print("\nGraceful exit requested. Bye.")
     sys.exit(0)
 
+
 signal.signal(signal.SIGINT, graceful_exit)
 signal.signal(signal.SIGTERM, graceful_exit)
 
-# ------------------ DETECTION PRINT ------------------
-def print_detection(material, json_file, image_file, db_id, base_url=None):
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    url = base_url
-    print("\n" + "="*50)
-    print(f"[{now}] Detection Result:")
-    print(f"Detected Material : {material}")
-    print(f"Saved to DB with ID: {db_id if db_id else 'N/A'}")
-    print(f"URL              : {url}")
-    print("="*50 + "\n")
 
-# ------------------ PROCESS ------------------
+# =========================
+# PRINT RESULT
+# =========================
+def print_detection(material, filename, db_id, image_url):
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print("\n" + "=" * 50)
+    print(f"[{now}] Detection Result")
+    print(f"Material : {material}")
+    print(f"DB ID    : {db_id if db_id else 'N/A'}")
+    print(f"Image    : {image_url}")
+    print("=" * 50 + "\n")
+
+
+# =========================
+# MAIN PROCESS
+# =========================
 def process_once():
-    print("Taking picture...")
+    print("📸 Taking picture...")
     image_path = take_picture()
 
     if image_path is None:
-        print("Capture failed — skipping analyze.")
-        material_detected = "no_image"
-        material_db = "other"   # DB não aceita "no_image"
-        filename = "no_image.jpg"
-        imageUrl = ""
+        print("❌ Capture failed")
+        return
+
+    print("🧠 Analyzing material...")
+    material, final_image = analyze_material(image_path)
+
+    filename = os.path.basename(image_path)
+
+    # 🔹 salvar na pasta da sessão
+    save_path = os.path.join(SESSION_DIR, filename)
+    image_url = f"{BASE_IMAGE_URL}/{filename}"
+
+    # Save blurred image
+    if final_image is not None:
+        cv2.imwrite(save_path, final_image)
     else:
-        print("Analyzing Material...")
-        material_detected = analyze_material(image_path)
-        material_db = material_detected if material_detected in ["plastic", "metal", "paper", "glass", "organic", "other"] else "other"
-        filename = os.path.basename(image_path)
-        imageUrl = f"{BASE_IMAGE_URL}/{filename}"
+        cv2.imwrite(save_path, cv2.imread(image_path))
 
     beep()
 
-    # Save JSON
+    # Save JSON (mantém histórico completo)
     timestamp = int(time.time())
     json_path = os.path.join(OUTPUT_JSON_DIR, f"det_{timestamp}.json")
-    result = {
-        "timestamp": timestamp,
-        "image": image_path if image_path else "",
-        "image_url": imageUrl,
-        "material": material_detected
-    }
+
     with open(json_path, "w") as f:
-        json.dump(result, f, indent=2)
+        json.dump({
+            "timestamp": timestamp,
+            "image": filename,
+            "image_url": image_url,
+            "material": material,
+            "session": SESSION_ID
+        }, f, indent=2)
 
-    print("Detected material:", material_detected)
-    print("Saved JSON:", json_path)
-    print("Image filename:", filename)
-
-    # Location & device
+    # Location + device
     lat, lon = get_location()
     stick_id = get_stick_id()
+
+    # DB material mapping
+    db_material = material if material in [
+        "plastic", "metal", "paper", "glass", "organic", "other"
+    ] else "other"
 
     # Send to DB
     db_id = None
     try:
         db_ok = send_detection_to_db(
-            material=material_db,
-            description=f"Detected material: {material_detected}",
-            image_url=imageUrl,
+            material=db_material,
+            description=f"Detected material: {material}",
+            image_url=image_url,
             latitude=lat,
             longitude=lon,
             stick_id=stick_id
         )
         if db_ok:
-            db_id = db_ok  # assume que retorna ID
-            print("Saved to DB ✅")
+            db_id = db_ok
+            print("✅ Saved to DB")
         else:
-            print("Failed to save to DB ❌")
+            print("❌ DB insert failed")
     except Exception as e:
-        print("DB ERROR:", e)
+        print("❌ DB ERROR:", e)
 
-    # Print full detection info
-    base_url = imageUrl
-    print_detection(material_detected, json_path, filename, db_id, base_url=base_url)
+    print_detection(material, filename, db_id, image_url)
 
-# ------------------ MAIN ------------------
+
+# =========================
+# MAIN LOOP
+# =========================
 def main():
-    print("Starting HTTP server...")
+    print("🌍 Starting HTTP server...")
     start_http_server()
 
     boot_beeps()
-
-    print("System ready. Press button to scan (CTRL+C to stop).")
+    print("✅ System ready – press the button")
 
     while True:
         button.wait_for_press()
-        print("Button pressed!")
+        print("🔘 Button pressed")
         process_once()
         time.sleep(0.7)
+
 
 if __name__ == "__main__":
     main()
