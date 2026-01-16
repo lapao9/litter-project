@@ -29,7 +29,7 @@ BASE_FRAMES_DIR = "output/frames"
 os.makedirs(OUTPUT_JSON_DIR, exist_ok=True)
 os.makedirs(BASE_FRAMES_DIR, exist_ok=True)
 
-# 🔹 SESSÃO ATUAL
+# 🔹 CURRENT SESSION
 SESSION_ID = int(time.time())
 SESSION_DIR = os.path.join(BASE_FRAMES_DIR, f"session_{SESSION_ID}")
 os.makedirs(SESSION_DIR, exist_ok=True)
@@ -92,7 +92,7 @@ def process_once():
 
     filename = os.path.basename(image_path)
 
-    # 🔹 salvar na pasta da sessão
+    # 🔹 Save
     save_path = os.path.join(SESSION_DIR, filename)
     image_url = f"{BASE_IMAGE_URL}/{filename}"
 
@@ -104,7 +104,7 @@ def process_once():
 
     beep()
 
-    # Save JSON (mantém histórico completo)
+    # Save JSON 
     timestamp = int(time.time())
     json_path = os.path.join(OUTPUT_JSON_DIR, f"det_{timestamp}.json")
 
@@ -122,9 +122,9 @@ def process_once():
     stick_id = get_stick_id()
 
     # DB material mapping
-    db_material = material if material in [
-        "plastic", "metal", "paper", "glass", "organic", "other"
-    ] else "other"
+    #db_material = material if material in [
+    #    "plastic", "metal", "paper", "glass", "organic", "other"
+    #] else "other"
 
     # Send to DB
     db_id = None

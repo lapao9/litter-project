@@ -2,9 +2,7 @@
 from gpiozero import PWMOutputDevice
 import time
 
-# Cria PWM no GPIO17
 bz = None
-#PWMOutputDevice(17)
 
 def init_buzzer():
     global bz
@@ -20,17 +18,17 @@ def beep(duration=0.15, freq=4000):
     Frequência padrão: 2000 Hz.
     """
     try:
-        bz.frequency = freq       # define frequência
-        bz.value = 0.5            # 50% duty = som audível
+        bz.frequency = freq       
+        bz.value = 0.5            # 50% duty = audible sound
         time.sleep(duration)
-        bz.value = 0              # desliga o som
+        bz.value = 0              # turn off
     except Exception as e:
         print("Buzzer error:", e)
 
 def boot_beeps():
     pattern = [
-        0.1, 0.1, 0.3,   # dois curtos + um longo
-        0.1, 0.5        # curto + pausa maior
+        0.1, 0.1, 0.3,   # short + short + long
+        0.1, 0.5        # short + very long
     ]
 
     for duration in pattern:
@@ -39,7 +37,7 @@ def boot_beeps():
 
 def tone(freq, duration):
     """
-    Emite um tom contínuo com frequência específica.
+    Does a tone at given frequency for given duration.
     """
     try:
         bz.frequency = freq

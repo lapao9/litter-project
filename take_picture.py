@@ -10,12 +10,12 @@ try:
     PICAMERA2_AVAILABLE = True
 except ImportError:
     PICAMERA2_AVAILABLE = False
-    print("Picamera2 não disponível, fallback para rpicam-still")
+    print("Picamera2 not available, will use rpicam-still as fallback.")    
 
 picam2 = None
 
 def init_camera():
-    """Inicializa a Picamera2, se disponível"""
+    """Initialize Picamera2 if available"""
     global picam2
     if not PICAMERA2_AVAILABLE:
         return False
@@ -27,12 +27,12 @@ def init_camera():
         time.sleep(0.5)
         return True
     except Exception as e:
-        print("Erro ao inicializar Picamera2:", e)
+        print("Error initializing Picamera2:", e)
         picam2 = None
         return False
 
 def take_picture():
-    """Tira uma foto e devolve o caminho do ficheiro"""
+    """Take a picture and save to OUTPUT_DIR, return filepath or None on failure"""
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     filename = f"{OUTPUT_DIR}/frame_{int(time.time())}.jpg"
 
@@ -42,7 +42,7 @@ def take_picture():
             picam2.capture_file(filename)
             return filename
         except Exception as e:
-            print("Picamera2 falhou:", e)
+            print("Picamera2 capture failed:", e)
 
     # 2️⃣ Fallback para rpicam-still (SSH-friendly)
     try:
@@ -50,16 +50,16 @@ def take_picture():
         subprocess.run(cmd, check=True)
         return filename
     except Exception as e:
-        print("rpicam-still falhou:", e)
+        print("rpicam-still failed:", e)
         return None
 
 def close_camera():
-    """Fecha Picamera2 se estiver aberta"""
+    """Close Picamera2 if initialized"""
     global picam2
     if picam2 is not None:
         picam2.stop()
         picam2.close()
         picam2 = None
 
-# Inicializa a câmera Picamera2 no arranque
+# Initialize camera at startup
 init_camera()
