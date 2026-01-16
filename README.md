@@ -11,8 +11,10 @@ This project was developed as part of an academic assignment at **Avans Universi
 ## Features
 - Image capture using Raspberry Pi Camera
 - Waste material classification using TensorFlow Lite
+- Background blurring to emphasize the detected object
 - Audible feedback via buzzer
 - Local JSON logging
+- Local web interface to view captured images
 - Optional database integration
 - Designed for offline operation
 
@@ -32,10 +34,10 @@ This project was developed as part of an academic assignment at **Avans Universi
 - Python 3.11
 - TensorFlow Lite Runtime
 - OpenCV (headless)
-- NumPy
+- NumPy (< 2.0)
 - GPIO Zero
-- FastAPI (optional backend)
-- PostgreSQL (Neon Db)
+- FastAPI (local web server)
+- PostgreSQL (Neon DB)
 
 ---
 
@@ -49,15 +51,22 @@ All credit for the original model architecture and dataset goes to the original 
 
 ---
 
-## Documentation
-Documentation is available in the `docs/` folder
+## Local Web Interface
+The system starts a lightweight local web server that allows viewing **all images captured during the current session**.
+
+- Images are updated **only when a new detection occurs**
+- The page does **not auto-refresh**
+- Manual refresh (`F5`) shows the latest images
+- Each image shown corresponds to a processed (blurred-background) result
 
 ---
 
-## Running the Project
+## Documentation
+Documentation is available in the `docs/` folder
 For detailed instructions on setup and execution, please refer to:
 
 📄 `docs/User_Guide.md`
+📄 `docs/Hardware_Setup.md`
 
 ---
 
@@ -65,4 +74,3 @@ For detailed instructions on setup and execution, please refer to:
 - Project Name: **AI Against Litter**
 - Institution: **Avans University of Applied Sciences**
 - Program: **ETP**
-- Language: **English**
