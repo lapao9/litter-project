@@ -1,11 +1,9 @@
 # analyze_material.py
-
 import os
 import cv2
 import numpy as np
 from PIL import Image
 import tflite_runtime.interpreter as tflite
-import torch
 
 # =========================
 # Paths
@@ -53,14 +51,6 @@ INPUT_HEIGHT = input_details[0]["shape"][1]
 INPUT_WIDTH  = input_details[0]["shape"][2]
 
 # =========================
-# Load YOLOv5 Tiny
-# =========================
-# Usa modelo pré-treinado COCO, detecta objetos grandes (pode ajustar para dataset de lixo)
-yolo_model = torch.hub.load('ultralytics/yolov5', 'yolov5s', pretrained=True)
-yolo_model.conf = 0.25  # confiança mínima
-yolo_model.iou = 0.45   # IOU NMS
-
-# =========================
 # Preprocess image for TFLite
 # =========================
 def preprocess_image(img):
@@ -71,35 +61,37 @@ def preprocess_image(img):
     return img
 
 # =========================
-# Detect main object and apply background blur
+# Detect main object and blur background
 # =========================
 def isolate_main_object(image_path):
     img = cv2.imread(image_path)
     if img is None:
         return None, None
 
-    results = yolo_model(img)
-    detections = results.xyxy[0]  # [x1, y1, x2, y2, conf, class]
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    # Threshold automático baseado em Otsu
+    _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
-    if len(detections) == 0:
-        # nenhum objeto detectado
+    # Encontrar contornos
+    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if len(contours) == 0:
+        # Nenhum objeto detectado
         return img, None
 
-    # pegar objeto com maior área
-    areas = [(det[2]-det[0])*(det[3]-det[1]) for det in detections]
-    max_idx = int(np.argmax(areas))
-    x1, y1, x2, y2 = map(int, detections[max_idx][:4])
+    # Pegar maior contorno (assumimos objeto principal)
+    c = max(contours, key=cv2.contourArea)
+    x, y, w, h = cv2.boundingRect(c)
 
-    # criar máscara
-    mask = np.zeros(img.shape[:2], dtype=np.uint8)
-    mask[y1:y2, x1:x2] = 255
+    # Criar máscara
+    mask = np.zeros(img.shape[:2], np.uint8)
+    mask[y:y+h, x:x+w] = 255
 
-    # desfocar fundo
+    # Desfocar fundo
     blurred = cv2.GaussianBlur(img, (21,21), 0)
     result = np.where(mask[:,:,None]==255, img, blurred)
 
-    # retornar imagem com fundo desfocado e crop do objeto
-    obj_crop = img[y1:y2, x1:x2].copy()
+    # Retornar crop do objeto
+    obj_crop = img[y:y+h, x:x+w].copy()
     return result, obj_crop
 
 # =========================
@@ -110,15 +102,14 @@ def analyze_material(image_path, confidence_threshold=0.1):
         return "no_image"
 
     try:
-        # Isola o objeto
         _, obj_img = isolate_main_object(image_path)
         if obj_img is None:
-            # nenhum objeto detectado, usar imagem inteira
+            # Nenhum objeto detectado, usar imagem inteira
             img_for_model = cv2.imread(image_path)
         else:
             img_for_model = obj_img
 
-        # Preprocessa
+        # Preprocessar para TFLite
         input_data = preprocess_image(img_for_model)
         interpreter.set_tensor(input_details[0]['index'], input_data)
         interpreter.invoke()
