@@ -10,6 +10,7 @@ from local_server import run_in_thread as start_http_server
 from take_picture import take_picture
 from analyze_material import analyze_material
 from buzzer import beep
+from buzzer import boot_beeps
 from buzzer import init_buzzer
 from send_to_db import send_detection_to_db
 from location import get_location
@@ -122,6 +123,8 @@ def process_once():
 def main():
     print("Starting HTTP server...")
     start_http_server()
+
+    boot_beeps()
 
     print("System ready. Press button to scan (CTRL+C to stop).")
 

@@ -27,6 +27,15 @@ def beep(duration=0.15, freq=4000):
     except Exception as e:
         print("Buzzer error:", e)
 
+def boot_beeps():
+    pattern = [
+        0.1, 0.1, 0.3,   # dois curtos + um longo
+        0.1, 0.5        # curto + pausa maior
+    ]
+
+    for duration in pattern:
+        beep()
+        time.sleep(duration)
 
 def tone(freq, duration):
     """
