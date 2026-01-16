@@ -112,7 +112,7 @@ Now you can run the project with:
 
 ---
 
-## 5. Run the Project
+## 6. Run the Project
 
 Once the environment is active (or using the script):
 
@@ -121,11 +121,14 @@ source venv_tflite/bin/activate
 python main.py
 ```
 
-The program will (once you click the button):
+When the button is pressed, the system will:
 
 * Capture an image from the camera (fallback to rpicam-still if Picamera2 is unavailable)
+* Apply background blurring to emphasize the detected object
 * Analyze the material using the TensorFlow Lite model
-* Example of Output results in the terminal:
+* Save the processed image locally
+* Log the detection as a JSON file
+* Send the detection to the database (if configured)
 
 ```
 Detected Material: Plastic
@@ -137,7 +140,53 @@ URL: http://example.com/view/42
 
 ---
 
-## 6. Notes for the Raspberry Pi
+7. Image Processing (Background Blur)
+
+To improve classification accuracy and visualization, the system applies **background blurring**:
+
+* The main object remains sharp
+* The surrounding background is blurred
+* The blurred image is the one saved and displayed
+* The original image is not used after processing
+This helps reduce visual noise and makes detections clearer for both users and reviewers.
+
+---
+
+8. Local Web Interface
+
+A lightweight local web server is started automatically.
+
+**Accessing the interface**
+
+From another device on the same network, open:
+```
+http://<raspberry-pi-ip>:8000  (the ip can be, by default, "raspberrypi")
+```
+**Behavior**
+* Displays all images captured during the current session
+* Images are shown in chronological order
+* The page does not auto-refresh
+* Refresh manually (F5) to see new images
+* No continuous background requests are made
+
+---
+
+9. Database Integration
+
+If database credentials are provided in the ```.env``` file:
+
+* Each detection is sent to the database
+* Stored data includes:
+    * Material type
+    * Timestamp
+    * Image URL
+    * GPS location
+    * Device ID
+If the database is unreachable, the system continues operating locally without interruption.
+
+---
+
+## 10. Notes for the Raspberry Pi
 
 * Ensure the Pi’s camera is enabled in `raspi-config`.
 * The GPIO buzzer is connected to **GPIO17 (BOARD pin 11)** on a perfboard with a 2x20 connector.
@@ -145,7 +194,7 @@ URL: http://example.com/view/42
 
 ---
 
-## 7. References
+## 11. References
 
 * Model source: [WasteNet Garbage Classifier](https://github.com/KrisnaSantosa15/wastenet-garbage-classifier/tree/main)
 * TensorFlow Lite: [https://www.tensorflow.org/lite](https://www.tensorflow.org/lite)
