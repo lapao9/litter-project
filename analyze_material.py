@@ -40,22 +40,22 @@ def preprocess(img):
     img = img.astype(np.float32) / 255.0
     return np.expand_dims(img, axis=0)
 
-
 def blur_background(image_path, crop_fraction=0.5):
     img = cv2.imread(image_path)
     if img is None:
         return None, None
 
     h, w = img.shape[:2]
-    blurred = cv2.GaussianBlur(img, (21, 21), 0)
+
+    blurred = cv2.GaussianBlur(img, (71, 71), 0)
 
     ch, cw = int(h * crop_fraction), int(w * crop_fraction)
     y1, y2 = h // 2 - ch // 2, h // 2 + ch // 2
     x1, x2 = w // 2 - cw // 2, w // 2 + cw // 2
 
     blurred[y1:y2, x1:x2] = img[y1:y2, x1:x2]
-    crop = img[y1:y2, x1:x2].copy()
 
+    crop = img[y1:y2, x1:x2].copy()
     return blurred, crop
 
 
