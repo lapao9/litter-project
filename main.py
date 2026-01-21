@@ -122,7 +122,22 @@ def process_once():
     stick_id = get_stick_id()
 
     # DB material mapping
-    db_material = material #if material in [
+    DB_ALLOWED_CATEGORIES = {
+        "plastic",
+        "metal",
+        "paper",
+        "glass",
+        "organic",
+        "other",
+        "trash"
+    }
+
+    if material not in DB_ALLOWED_CATEGORIES:
+        db_material = "other"
+    else:
+        db_material = material
+
+    #if material in [
     #    "plastic", "metal", "paper", "glass", "organic", "other"
     #] else "other"
 
