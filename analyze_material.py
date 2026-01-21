@@ -1,3 +1,4 @@
+#analyze_material.py
 import os
 import cv2
 import numpy as np
@@ -44,6 +45,8 @@ def blur_background(image_path, crop_fraction=0.5):
     img = cv2.imread(image_path)
     if img is None:
         return None, None
+    
+    img = cv2.rotate(img, cv2.ROTATE_180)
 
     h, w = img.shape[:2]
 
